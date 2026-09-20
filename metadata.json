@@ -1,0 +1,6 @@
+{
+  "name": "ShipFlow Manager",
+  "description": "Professional order management, inventory tracking, and shipping label generator with profit analytics and WhatsApp integration.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

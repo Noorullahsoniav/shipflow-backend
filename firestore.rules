@@ -1,0 +1,177 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         request.auth.token.email == "noorullah03474763055@gmail.com" ||
+         request.auth.token.email == "noorullah111111111@gmail.com");
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidString(val, min, max) {
+      return val is string && val.size() >= min && val.size() <= max;
+    }
+    
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidProduct(data) {
+      return hasRequiredFields(['name', 'costPrice', 'sellingPrice', 'stock']) &&
+             isValidString(data.name, 1, 100) &&
+             data.costPrice is number && data.costPrice >= 0 &&
+             data.sellingPrice is number && data.sellingPrice >= 0 &&
+             data.stock is number &&
+             (!('lowStockThreshold' in data) || data.lowStockThreshold is number) &&
+             (!('userId' in data) || isValidString(data.userId, 1, 128));
+    }
+
+    function isValidOrder(data) {
+      return hasRequiredFields(['customerName', 'customerPhone', 'items', 'status', 'totalAmount', 'createdAt']) &&
+             isValidString(data.customerName, 1, 1000) &&
+             (data.customerPhone == "" || isValidString(data.customerPhone, 1, 200)) &&
+             (data.get('customerAddress', null) == null || data.customerAddress == "" || isValidString(data.customerAddress, 0, 5000)) &&
+             (data.get('customerCity', null) == null || data.customerCity == "" || isValidString(data.customerCity, 0, 1000)) &&
+             data.items is list && data.items.size() >= 0 && data.items.size() <= 1000 &&
+             data.status in ['Pending', 'Packed', 'Shipped', 'Delivered', 'Returned', 'Cancelled'] &&
+             data.totalAmount is number &&
+             (data.get('totalProfit', null) == null || data.totalProfit is number) &&
+             (data.get('deliveryCharges', null) == null || data.deliveryCharges is number) &&
+             (data.get('partnerName', null) == null || data.partnerName == "" || isValidString(data.partnerName, 0, 1000)) &&
+             (data.get('partnerProfitAmount', null) == null || data.partnerProfitAmount is number) &&
+             (data.get('trackingNumber', null) == null || data.trackingNumber == "" || isValidString(data.trackingNumber, 0, 200)) &&
+             isValidString(data.createdAt, 1, 200) &&
+             (data.get('labelType', null) == null || data.labelType in ['VPL', 'VPP', 'PAR', 'COD']) &&
+             (data.get('paymentReceived', null) == null || data.paymentReceived is bool) &&
+             (data.get('partnerPaid', null) == null || data.partnerPaid is bool) && 
+             (data.get('lastTrackingEvent', null) == null || isValidString(data.lastTrackingEvent, 0, 5000)) &&
+             (data.get('lastTrackingLocation', null) == null || isValidString(data.lastTrackingLocation, 0, 5000)) &&
+             (data.get('lastTrackingDate', null) == null || isValidString(data.lastTrackingDate, 0, 1000)) &&
+             (!('userId' in data) || isValidString(data.userId, 1, 128));
+    }
+
+    function isValidSettings(data) {
+      return (data.get('senderName', null) == null || isValidString(data.senderName, 0, 100)) &&
+             (data.get('senderPhone', null) == null || isValidString(data.senderPhone, 0, 20)) &&
+             (data.get('senderAddress', null) == null || isValidString(data.senderAddress, 0, 500)) &&
+             (data.get('senderCity', null) == null || isValidString(data.senderCity, 0, 100)) &&
+             (!('userId' in data) || isValidString(data.userId, 1, 128));
+    }
+
+    function isValidStockLog(data) {
+      return hasRequiredFields(['productId', 'productName', 'quantity', 'costPrice', 'totalCost', 'createdAt']) &&
+             isValidString(data.productId, 1, 100) &&
+             isValidString(data.productName, 1, 100) &&
+             data.quantity is number && data.quantity > 0 &&
+             data.costPrice is number && data.costPrice >= 0 &&
+             data.totalCost is number && data.totalCost >= 0 &&
+             isValidString(data.createdAt, 1, 50) &&
+             (!('userId' in data) || isValidString(data.userId, 1, 128));
+    }
+
+    function isValidDebt(data) {
+      return hasRequiredFields(['borrowerName', 'amount', 'isPaid', 'createdAt']) &&
+             isValidString(data.borrowerName, 1, 100) &&
+             data.amount is number &&
+             data.isPaid is bool &&
+             isValidString(data.createdAt, 1, 50) &&
+             (data.get('description', null) == null || isValidString(data.description, 0, 500)) &&
+             (!('userId' in data) || isValidString(data.userId, 1, 128));
+    }
+
+    function isValidExpense(data) {
+      return hasRequiredFields(['description', 'amount', 'category', 'createdAt']) &&
+             isValidString(data.description, 1, 200) &&
+             data.amount is number &&
+             isValidString(data.category, 1, 100) &&
+             isValidString(data.createdAt, 1, 50) &&
+             (!('userId' in data) || isValidString(data.userId, 1, 128));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Test Collection (for connection testing)
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Products Collection
+    match /products/{productId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || !('userId' in resource.data) || isAdmin());
+      allow create: if isAuthenticated() && isValidProduct(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()) && isValidProduct(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || !('userId' in resource.data) || isAdmin());
+      allow create: if isAuthenticated() && isValidOrder(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()) && isValidOrder(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Settings Collection
+    match /settings/{settingId} {
+      allow read: if isAuthenticated() && (settingId == request.auth.uid || settingId == 'global' || resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAuthenticated() && isValidSettings(request.resource.data);
+    }
+
+    // Stock Logs Collection
+    match /stockLogs/{logId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || !('userId' in resource.data) || isAdmin());
+      allow create: if isAuthenticated() && isValidStockLog(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Users Collection (for RBAC)
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Bills Collection
+    match /bills/{billId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || !('userId' in resource.data) || isAdmin());
+      allow create: if isAuthenticated() && hasRequiredFields(['customerName', 'items', 'subtotal', 'total', 'createdAt']);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Debts Collection
+    match /debts/{debtId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || !('userId' in resource.data) || isAdmin());
+      allow create: if isAuthenticated() && isValidDebt(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()) && isValidDebt(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Expenses Collection
+    match /expenses/{expenseId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || !('userId' in resource.data) || isAdmin());
+      allow create: if isAuthenticated() && isValidExpense(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()) && isValidExpense(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+  }
+}

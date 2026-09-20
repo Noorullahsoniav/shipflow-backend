@@ -1,0 +1,174 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A product in the inventory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "costPrice": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "lowStockThreshold": { "type": "number" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "costPrice", "sellingPrice", "stock"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "customerAddress": { "type": "string" },
+        "customerCity": { "type": "string" },
+        "trackingNumber": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "productId": { "type": "string" },
+              "name": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price": { "type": "number" },
+              "cost": { "type": "number" }
+            }
+          }
+        },
+        "totalAmount": { "type": "number" },
+        "totalProfit": { "type": "number" },
+        "deliveryCharges": { "type": "number" },
+        "partnerName": { "type": "string" },
+        "partnerProfitAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending", "Packed", "Shipped", "Delivered", "Returned", "Cancelled"] },
+        "labelType": { "type": "string", "enum": ["VPL", "VPP", "PAR"] },
+        "paymentReceived": { "type": "boolean" },
+        "partnerPaid": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerName", "customerPhone", "items", "status", "totalAmount", "createdAt"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Application settings (e.g., sender address).",
+      "type": "object",
+      "properties": {
+        "senderName": { "type": "string" },
+        "senderPhone": { "type": "string" },
+        "senderAddress": { "type": "string" },
+        "senderCity": { "type": "string" },
+        "userId": { "type": "string" }
+      }
+    },
+    "StockLog": {
+      "title": "Stock Log",
+      "description": "A record of stock added to the inventory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "costPrice": { "type": "number" },
+        "totalCost": { "type": "number" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productId", "productName", "quantity", "costPrice", "totalCost", "createdAt"]
+    },
+    "Bill": {
+      "title": "Bill",
+      "description": "A saved customer bill.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "customerAddress": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price": { "type": "number" },
+              "total": { "type": "number" }
+            }
+          }
+        },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "total": { "type": "number" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerName", "items", "subtotal", "total", "createdAt"]
+    },
+    "Debt": {
+      "title": "Debt",
+      "description": "A record of personal outstanding and received loans (udhaar).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "borrowerName": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "isPaid": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["borrowerName", "amount", "isPaid", "createdAt"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Daily daily-use personal expenses.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["description", "amount", "category", "createdAt"]
+    }
+  },
+  "firestore": {
+    "products": {
+      "schema": "Product",
+      "description": "Collection of products in inventory."
+    },
+    "orders": {
+      "schema": "Order",
+      "description": "Collection of customer orders."
+    },
+    "settings": {
+      "schema": "Settings",
+      "description": "Global settings for the app."
+    },
+    "stockLogs": {
+      "schema": "StockLog",
+      "description": "History of stock additions."
+    },
+    "bills": {
+      "schema": "Bill",
+      "description": "Collection of saved customer bills."
+    },
+    "debts": {
+      "schema": "Debt",
+      "description": "Collection of personal debts/loans."
+    },
+    "expenses": {
+      "schema": "Expense",
+      "description": "Collection of daily expenses."
+    }
+  }
+}
