@@ -312,27 +312,19 @@ async function handleSearchGroundedTrack(courier: string, trackingId: string) {
     return cached.data;
   }
 
-  // Helper definition for fallback milestones to keep the code DRY and reuse below
+  // When live tracking is unavailable we must NOT invent milestones.
+  // Return an honest "not available" result so the caller shows the
+  // "no live info" message instead of fake hub names and old dates.
   const getFallbackData = () => {
-    const isLeopardsKI = normalizedId.startsWith("KI");
-    const fallbackStatus = isLeopardsKI ? "ٹرانزٹ میں ہے" : "آرڈر بک ہو گیا ہے";
-    const fallbackEvents = isLeopardsKI ? [
-      { date: "آج (09:45 AM)", location: "کراچی ساؤتھ ہب", status: "ٹرانزٹ میں ہے (ڈیلیوری آفس روانہ)" },
-      { date: "گذشتہ روز (03:15 PM)", location: "کراچی کلفٹن ہب", status: "پارسل کلفٹن آفس پر وصول ہو گیا" },
-      { date: "10 جون (11:20 AM)", location: "لاہور مین برانچ", status: "بکنگ مکمل، کراچی روانگی" }
-    ] : [
-      { date: "آج (10:00 AM)", location: "بکنگ آفس", status: "لوکل برانچ پر بکنگ ہو گئی ہے" }
-    ];
-
     return {
-      success: true,
+      success: false,
       courier,
       trackingId: normalizedId,
       trackingUrl,
-      status: fallbackStatus,
-      lastUpdate: "آج",
-      location: "کراچی (Karachi)",
-      events: fallbackEvents
+      status: "لائیو معلومات دستیاب نہیں",
+      lastUpdate: "نامعلوم",
+      location: "نامعلوم",
+      events: []
     };
   };
 
@@ -584,10 +576,10 @@ Status: Currently no tracking events were returned from the live web server. The
 Here is the current state of the user's data:
 ---
 [Products]
-\${JSON.stringify(context?.products || [])}
+${JSON.stringify(context?.products || [])}
 
 [Orders]
-\${JSON.stringify(context?.orders || [])}
+${JSON.stringify(context?.orders || [])}
 ---
 
 ${autoScrapedDetails}
@@ -655,7 +647,7 @@ Tone: Professional, efficient, and supportive.`;
       // Fast, resilient standard fallback pipeline
       if (!response) {
         console.log("Chat API: Running fallback model gemini-3.1-flash-lite without Search Grounding...");
-        const systemInstructionFallback = `\${systemInstructionBase}
+        const systemInstructionFallback = `${systemInstructionBase}
 
 [System Note: Live Google Search grounding is currently experiencing high demand. Standard live web searches are offline. If the user asks for tracking info and we DO NOT have [LIVE PAKISTAN POST SCRARED WEB TRACKING RESULTS] injected above, explain politely that the live search limit was reached, and encourage them to click on the order status directly to view scraper tracking.]`;
 
@@ -715,6 +707,7 @@ Tone: Professional, efficient, and supportive.`;
       let pendingRevenue = 0;
       let pendingProfit = 0;
       let pendingStock = 0;
+      let estimatedCostOrders = 0;
       
       const productMap = new Map();
       productsList.forEach((p: any) => {
@@ -737,7 +730,10 @@ Tone: Professional, efficient, and supportive.`;
         }
         
         if (totalCost === 0) {
+          // Cost price not entered for this order's products: use a clearly
+          // marked ESTIMATE instead of silently pretending it is exact.
           totalCost = Math.round(revenue * 0.65);
+          estimatedCostOrders++;
         }
         
         const deliveryCharge = Number(order.deliveryCharges || 0);
@@ -780,7 +776,7 @@ Tone: Professional, efficient, and supportive.`;
 2. 🛡️ **اسٹاک کا بل (Stock Bill Protection):** وصول شدہ رقم میں سے **Rs. ${receivedStock.toLocaleString()}** خالصاً آپ کے اسٹاک/پراڈکٹس کی قیمت خرید (Capital) ہے۔ اس رقم کو ہرگز خرچ نہ کریں بلکہ اسے نئی خریداروں اور ہول سیل سپلائر کے بلوں کی ادائیگی کے لیے محفوظ رکھیں۔
 
 ---
-*(نوٹ: یہ حساب کتاب آپ کے لائیو آرڈرز کے ڈیٹا بیس سے نکالا گیا ہے اور 100٪ درست ہے)*`;
+*(نوٹ: یہ حساب آپ کے آرڈرز کے ڈیٹا بیس سے نکالا گیا ہے۔${estimatedCostOrders > 0 ? ` ${estimatedCostOrders} آرڈر میں پراڈکٹ کی قیمت خرید درج نہیں تھی، اس لیے ان آرڈرز کی لاگت کا صرف تخمینہ (ریونیو کا تقریباً 65٪) لگایا گیا ہے — یہ حتمی رقم نہیں۔ بالکل درست منافع کے لیے ہر پراڈکٹ کی قیمت خرید انوینٹری میں درج کریں۔` : " تمام قیمت خرید آپ کی انوینٹری سے لی گئی ہیں۔"})*`;
       }
       else if (query.includes("track") || query.includes("ٹیک") || query.includes("پارسل") || query.includes("status") || query.includes("کہاں") || query.includes("cp") || query.includes("rb") || query.includes("ki") || /[A-Z]{2}\d{9}[A-Z]{2}/i.test(query) || /\bki\d{8,12}\b/i.test(query) || /\b\d{10,15}\b/.test(query)) {
         if (autoScrapedDetails) {
