@@ -7,14 +7,13 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
 
-// True inside a serverless function (Vercel sets VERCEL=1 automatically;
-// Netlify gets SERVERLESS=1 via netlify.toml [functions.environment]).
-// In serverless mode we skip static frontend serving and never call app.listen().
-// In serverless mode we skip static frontend serving and never call app.listen().
-// (No __dirname needed: serverless mode skips static file serving,
-// and the standalone server resolves paths from process.cwd().)
+// Read at call time (not module top level): the Netlify function wrapper sets
+// SERVERLESS=1 before invoking createApp(), and bundlers may evaluate this
+// module before any wrapper code runs. In serverless mode we skip static
+// frontend serving and never call app.listen().
 
-const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.SERVERLESS);
+const isServerless = () =>
+  Boolean(process.env.VERCEL || process.env.SERVERLESS);
 
 // State variables for self-healing search grounding
 let isSearchGroundingAvailable = true;
@@ -1507,7 +1506,7 @@ Return ONLY a valid JSON object. Do not wrap in markdown or backticks.
   });
 
   // Static frontend serving is skipped in serverless mode (API-only there; the host serves dist/ itself).
-  if (!IS_SERVERLESS) {
+  if (!isServerless()) {
     // Vite middleware for development
     if (process.env.NODE_ENV !== "production") {
       const { createServer: createViteServer } = await import("vite");
@@ -1531,7 +1530,7 @@ Return ONLY a valid JSON object. Do not wrap in markdown or backticks.
 // Long-running hosts (local dev, Docker, Render-style): boot the HTTP server here.
 // In serverless mode (Vercel/Netlify) the function wrapper calls createApp()
 // per invocation instead, so we must NOT listen here.
-if (!IS_SERVERLESS) {
+if (!isServerless()) {
   const PORT = Number(process.env.PORT) || 3000;
   createApp()
     .then((app) => {
