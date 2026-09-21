@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import axios from "axios";
 import * as cheerio from "cheerio";
@@ -11,10 +10,11 @@ dotenv.config();
 // True inside a serverless function (Vercel sets VERCEL=1 automatically;
 // Netlify gets SERVERLESS=1 via netlify.toml [functions.environment]).
 // In serverless mode we skip static frontend serving and never call app.listen().
-const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.SERVERLESS);
+// In serverless mode we skip static frontend serving and never call app.listen().
+// (No __dirname needed: serverless mode skips static file serving,
+// and the standalone server resolves paths from process.cwd().)
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.SERVERLESS);
 
 // State variables for self-healing search grounding
 let isSearchGroundingAvailable = true;
