@@ -7,13 +7,19 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
 
-// Read at call time (not module top level): the Netlify function wrapper sets
-// SERVERLESS=1 before invoking createApp(), and bundlers may evaluate this
-// module before any wrapper code runs. In serverless mode we skip static
-// frontend serving and never call app.listen().
-
+// Serverless detection. Read at call time, not module top level: the Netlify
+// function wrapper sets SERVERLESS=1 before invoking createApp(), and bundlers
+// may evaluate this module before any wrapper code runs. Vercel injects
+// VERCEL=1 itself. AWS_LAMBDA_FUNCTION_NAME / LAMBDA_TASK_ROOT are set by the
+// Lambda runtime (Netlify Functions run on Lambda), so the module-level
+// auto-listen below is skipped there even before the wrapper runs.
 const isServerless = () =>
-  Boolean(process.env.VERCEL || process.env.SERVERLESS);
+  Boolean(
+    process.env.VERCEL ||
+      process.env.SERVERLESS ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.LAMBDA_TASK_ROOT,
+  );
 
 // State variables for self-healing search grounding
 let isSearchGroundingAvailable = true;
