@@ -11,17 +11,28 @@ let handlerPromise: Promise<any> | null = null;
 
 function getHandler(): Promise<any> {
   if (!handlerPromise) {
+    // Tell server.ts it is running inside a serverless function (skip static
+    // frontend serving + app.listen()). server.ts reads this at call time.
+    process.env.SERVERLESS = "1";
     handlerPromise = createApp().then((app) => serverless(app));
   }
   return handlerPromise;
 }
 
 export const handler = async (event: any, context: any) => {
-  let path = typeof event.path === "string" ? event.path : "/";
+  // Netlify functions receive API Gateway payload v2.0 (rawPath) or v1 (path).
+  // Map the function's own prefix back to /api/* so Express routes match.
+  const incoming =
+    typeof event.rawPath === "string"
+      ? event.rawPath
+      : typeof event.path === "string"
+        ? event.path
+        : "/";
+  let path = incoming;
   if (path.startsWith(FUNCTION_PREFIX)) {
     const rest = path.slice(FUNCTION_PREFIX.length);
     path = "/api" + (rest.startsWith("/") ? rest : "/" + rest);
   }
   const handler = await getHandler();
-  return handler({ ...event, path }, context);
+  return handler({ ...event, path, rawPath: path }, context);
 };
