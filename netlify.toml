@@ -1,0 +1,28 @@
+# Netlify configuration for the ShipFlow backend.
+# The Express API (server.ts) runs as a Netlify Function via
+# netlify/functions/api.ts (serverless-http wrapper); the Vite
+# frontend is built here and served statically by Netlify.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Tell server.ts it is running inside a serverless function
+# (skip static serving + app.listen()).
+[functions.environment]
+  SERVERLESS = "1"
+
+# Keep the /api/* URL shape: rewrite to the function (200 = no redirect).
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api"
+  to = "/.netlify/functions/api/"
+  status = 200
