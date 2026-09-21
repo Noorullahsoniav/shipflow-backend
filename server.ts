@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
@@ -438,9 +437,8 @@ Do NOT output any prefix, suffix, markdown blocks (like \`\`\`json) or conversat
   return fallbackResult;
 }
 
-async function startServer() {
+export async function createApp() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -1503,24 +1501,41 @@ Return ONLY a valid JSON object. Do not wrap in markdown or backticks.
     }
   });
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+  // Static frontend serving is skipped on Vercel (API-only mode there; Vercel serves dist/ itself).
+  if (!process.env.VERCEL) {
+    // Vite middleware for development
+    if (process.env.NODE_ENV !== "production") {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  return app;
 }
 
-startServer();
+// Long-running hosts (local dev, Docker, Render-style): boot the HTTP server here.
+// On Vercel (process.env.VERCEL is set) the api/index.ts serverless wrapper calls
+// createApp() per invocation instead, so we must NOT listen here.
+if (!process.env.VERCEL) {
+  const PORT = Number(process.env.PORT) || 3000;
+  createApp()
+    .then((app) => {
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error("Failed to start server:", err);
+      process.exit(1);
+    });
+}
